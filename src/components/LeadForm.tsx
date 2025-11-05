@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
@@ -22,6 +24,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export const LeadForm = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -35,10 +38,36 @@ export const LeadForm = () => {
     },
   });
 
-  const onSubmit = (data: FormData) => {
-    console.log("Form submitted:", data);
-    toast.success("Formulário enviado com sucesso! Em breve entraremos em contato.");
-    form.reset();
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .insert({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          company: data.company,
+          role: data.role,
+          company_size: data.companySize,
+          challenge: data.challenge,
+        });
+
+      if (error) {
+        console.error('Error saving lead:', error);
+        toast.error("Erro ao enviar formulário. Tente novamente.");
+        return;
+      }
+
+      toast.success("Formulário enviado com sucesso! Em breve entraremos em contato.");
+      form.reset();
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error("Erro inesperado. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,9 +205,10 @@ export const LeadForm = () => {
                 variant="gradient" 
                 size="lg" 
                 className="w-full"
+                disabled={isSubmitting}
               >
                 <Sparkles className="mr-2" />
-                Quero ser Data Hub!
+                {isSubmitting ? "Enviando..." : "Quero ser Data Hub!"}
               </Button>
             </form>
           </Form>
